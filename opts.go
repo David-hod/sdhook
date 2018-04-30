@@ -14,9 +14,13 @@ import (
 	"github.com/knq/jwt/gserviceaccount"
 
 	"github.com/sirupsen/logrus"
-
 	errorReporting "google.golang.org/api/clouderrorreporting/v1beta1"
-	logging "google.golang.org/api/logging/v2"
+	googleLogging "cloud.google.com/go/logging"
+	"google.golang.org/api/logging/v2"
+	"context"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
+	"cloud.google.com/go/errorreporting"
+	"log"
 )
 
 // Option represents an option that modifies the Stackdriver hook settings.
@@ -279,20 +283,56 @@ func sliceContains(haystack []string, needle string) bool {
 	return false
 }
 
-func GoogleLoggingAgent() Option {
+func GoogleFluentLoggingAgent() Option {
 	return func(sh *StackdriverHook) error {
 		var err error
 		// set agent client. It expects that the forward input fluentd plugin
 		// is properly configured by the Google logging agent, which is by default.
 		// See more at:
 		// https://cloud.google.com/error-reporting/docs/setup/ec2
-		sh.agentClient, err = fluent.New(fluent.Config{
+		sh.fluentAgentClient, err = fluent.New(fluent.Config{
 			AsyncConnect: true,
 			MaxRetry:     -1,
 		})
 		if err != nil {
 			return fmt.Errorf("could not find fluentd agent on 127.0.0.1:24224")
 		}
+		return nil
+	}
+}
+
+func GoogleLoggingAgent(projectID string,service string, logName string,ctx context.Context,labels map[string]string,resourceType string  ) Option {
+	return func(sh *StackdriverHook) error {
+		ProjectID(projectID)
+		client, err := googleLogging.NewClient(ctx, projectID)
+		if err != nil {
+			return fmt.Errorf("could not create stackdriver client. error:%s",err.Error())
+		}
+		err = client.Ping(ctx)
+		if err != nil {
+			return fmt.Errorf("could not connect to stackdriver client. error:%s",err.Error())
+		}
+
+
+		mr:= monitoredres.MonitoredResource{
+			Type: resourceType,
+			Labels: labels,
+		}
+
+		errorClient, err := errorreporting.NewClient(ctx, projectID, errorreporting.Config{
+			ServiceName: "myservice",
+			OnError: func(err error) {
+				log.Printf("Could not log error: %v", err)
+			},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+
+		sh.defaultAgentLogger = &DefaultAgentLogger{client.Logger(logName),&mr,errorClient}
+
+
 		return nil
 	}
 }
