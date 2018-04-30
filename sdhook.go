@@ -207,7 +207,7 @@ func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
 		// write log entry
 		if sh.fluentAgentClient != nil {
 			sh.sendLogMessageViaAgentUsingFluent(entry, labels, loggingHttpReq)
-		} else if(sh.agentClientLogger != nil){
+		} else if(sh.defaultAgentLogger != nil){
 			sh.sendLogMessageViaAgentUsingGoogleClient(entry,labels,httpReq,latency,trace,responseCode,responseSize, clientIP,localIP)
 		} else {
 			sh.sendLogMessageViaAPI(entry, labels, loggingHttpReq)
@@ -311,13 +311,13 @@ func (sh *StackdriverHook) sendLogMessageViaAgentUsingGoogleClient(entry *logrus
 		logEntry.Trace = string(*trace)
 	}
 	logEntry.Payload = entry.Message
-	sh.agentClientLogger.Log(logEntry)
+	sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
 
 	if sh.errorReportingServiceName != "" && isError(entry) {
-		sh.errorreportingClient.Report(errorreporting.Entry{Error:errors.New(entry.Message)})
-		sh.agentClientLogger.Log(logEntry)
+		sh.defaultAgentLogger.errorreportingClient.Report(errorreporting.Entry{Error:errors.New(entry.Message)})
+		sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
 	} else {
-		sh.agentClientLogger.Log(logEntry)
+		sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
 	}
 }
 
