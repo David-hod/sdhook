@@ -301,9 +301,9 @@ func GoogleFluentLoggingAgent() Option {
 	}
 }
 
-func GoogleLoggingAgent(projectID string,service string, logName string,ctx context.Context,labels map[string]string,resourceType string  ) Option {
+func GoogleLoggingAgent(projectID string,service string,errorServiceName *string, logName string,ctx context.Context,labels map[string]string,resourceType string  ) Option {
 	return func(sh *StackdriverHook) error {
-		ProjectID(projectID)
+		ProjectID(projectID)(sh)
 		client, err := googleLogging.NewClient(ctx, projectID)
 		if err != nil {
 			return fmt.Errorf("could not create stackdriver client. error:%s",err.Error())
@@ -320,7 +320,7 @@ func GoogleLoggingAgent(projectID string,service string, logName string,ctx cont
 		}
 
 		errorClient, err := errorreporting.NewClient(ctx, projectID, errorreporting.Config{
-			ServiceName: "myservice",
+			ServiceName: service,
 			OnError: func(err error) {
 				log.Printf("Could not log error: %v", err)
 			},
@@ -331,6 +331,9 @@ func GoogleLoggingAgent(projectID string,service string, logName string,ctx cont
 
 
 		sh.defaultAgentLogger = &DefaultAgentLogger{client.Logger(logName),&mr,errorClient}
+		if(errorServiceName!=nil){
+			sh.errorReportingServiceName = *errorServiceName
+		}
 
 
 		return nil

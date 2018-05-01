@@ -108,10 +108,10 @@ func New(opts ...Option) (*StackdriverHook, error) {
 	}
 
 	// check service, resource, logName set
-	if sh.service == nil && sh.fluentAgentClient == nil {
+	if sh.service == nil && sh.fluentAgentClient == nil && sh.defaultAgentLogger == nil {
 		return nil, errors.New("no stackdriver service was provided")
 	}
-	if sh.resource == nil && sh.fluentAgentClient == nil {
+	if sh.resource == nil && sh.fluentAgentClient == nil &&sh.defaultAgentLogger.monitoredResource ==nil{
 		return nil, errors.New("the monitored resource was not provided")
 	}
 	if sh.projectID == "" && sh.fluentAgentClient == nil {
@@ -312,12 +312,13 @@ func (sh *StackdriverHook) sendLogMessageViaAgentUsingGoogleClient(entry *logrus
 	}
 	logEntry.Payload = entry.Message
 	sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
-
 	if sh.errorReportingServiceName != "" && isError(entry) {
-		sh.defaultAgentLogger.errorreportingClient.Report(errorreporting.Entry{Error:errors.New(entry.Message)})
-		sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
-	} else {
-		sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
+		errorEntry := errorreporting.Entry{Error:errors.New(entry.Message)}
+		if(httpReq!=nil){
+			errorEntry.Req =httpReq
+		}
+		sh.defaultAgentLogger.errorreportingClient.Report(errorEntry)
+
 	}
 }
 
