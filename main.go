@@ -95,4 +95,6 @@ func main() {
 
 	// wait for the writes to finish
 	time.Sleep(10 * time.Second)
+	reqHook.Close()
+	appHook.Close()
 }

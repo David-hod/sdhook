@@ -302,7 +302,8 @@ func GoogleFluentLoggingAgent() Option {
 }
 
 func GoogleLoggingAgent(projectID string,service string,errorServiceName *string, logName string,ctx context.Context,labels map[string]string,resourceType string  ) Option {
-	return func(sh *StackdriverHook) error {
+
+	return  func(sh *StackdriverHook) error {
 		ProjectID(projectID)(sh)
 		client, err := googleLogging.NewClient(ctx, projectID)
 		if err != nil {
@@ -334,8 +335,15 @@ func GoogleLoggingAgent(projectID string,service string,errorServiceName *string
 		if(errorServiceName!=nil){
 			sh.errorReportingServiceName = *errorServiceName
 		}
-
-
+		onClose := func(){
+			errorClient.Flush()
+			errorClient.Close()
+			client.Close()
+		}
+		sh.addCloseHandler(onClose)
 		return nil
+
+
 	}
+
 }
