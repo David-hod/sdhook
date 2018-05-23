@@ -186,7 +186,7 @@ func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
 		for k, v := range entry.Data {
 			switch x := v.(type) {
 			case string:
-				switch (x){
+				switch (k){
 					case TraceStr:
 						tmp := Trace(x)
 						trace = &tmp
@@ -199,8 +199,8 @@ func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
 						tmp := LocalIP(x)
 						localIP = &tmp
 					default:
-						if(strings.HasPrefix(x,LabelPrefixStr)){
-							trimedKey := strings.TrimPrefix(x, LabelPrefixStr)
+						if(strings.HasPrefix(k,LabelPrefixStr)){
+							trimedKey := strings.TrimPrefix(k, LabelPrefixStr)
 							labels[trimedKey]=x
 						}else{
 							extendedMessage = fmt.Sprintf("%v %v=%v",extendedMessage,k,v)

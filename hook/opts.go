@@ -317,7 +317,6 @@ func GoogleLoggingAgent(projectID string,service string,errorServiceName *string
 
 		mr:= monitoredres.MonitoredResource{
 			Type: resourceType,
-			Labels: labels,
 		}
 
 		errorClient, err := errorreporting.NewClient(ctx, projectID, errorreporting.Config{
@@ -331,7 +330,7 @@ func GoogleLoggingAgent(projectID string,service string,errorServiceName *string
 		}
 
 
-		sh.defaultAgentLogger = &DefaultAgentLogger{client.Logger(logName),&mr,errorClient}
+		sh.defaultAgentLogger = &DefaultAgentLogger{client.Logger(logName),&mr,errorClient,labels}
 		if(errorServiceName!=nil){
 			sh.errorReportingServiceName = *errorServiceName
 		}

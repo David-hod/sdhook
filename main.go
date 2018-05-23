@@ -84,7 +84,7 @@ func main() {
 
 	}
 
-	reqLoggerWithFields := reqLogger.WithFields(fields).WithField("request", mockReq).WithField("responseSize", responseSize).WithField("responseCode", responseCode).WithField("label1","hello").WithField("label2","hello2")
+	reqLoggerWithFields := reqLogger.WithFields(fields).WithField("request", mockReq).WithField("responseSize", responseSize).WithField("responseCode", responseCode).WithField("label:label1","hello").WithField("label:label2","hello2")
 	reqLoggerWithFields.Info("new request")
 
 	appLoggerWithFields := appLogger.WithFields(fields)
