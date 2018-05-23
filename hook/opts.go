@@ -334,10 +334,17 @@ func GoogleLoggingAgent(projectID string,service string,errorServiceName *string
 		if(errorServiceName!=nil){
 			sh.errorReportingServiceName = *errorServiceName
 		}
-		onClose := func(){
+		onClose := func() error {
 			errorClient.Flush()
-			errorClient.Close()
-			client.Close()
+			err := errorClient.Close()
+			if(err!=nil){
+				return err
+			}
+			err = client.Close()
+			if(err!=nil){
+				return err
+			}
+			return nil
 		}
 		sh.addCloseHandler(onClose)
 		return nil

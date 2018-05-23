@@ -101,7 +101,7 @@ type StackdriverHook struct {
 	errorReportingLogName string
 
 
-	closeHandlers []func()()
+	closeHandlers []func() error
 }
 
 // New creates a StackdriverHook using the provided options that is suitible
@@ -485,15 +485,19 @@ func (sh *StackdriverHook) buildErrorReportingEvent(entry *logrus.Entry, labels 
 	return errorEvent
 }
 
-func (sh *StackdriverHook) addCloseHandler(function func()()){
+func (sh *StackdriverHook) addCloseHandler(function func() error){
 	sh.closeHandlers = append(sh.closeHandlers,function)
 }
 
 //flushing and closing connections
-func (sh *StackdriverHook) Close(){
+func (sh *StackdriverHook) Close() error{
 	for _,x := range sh.closeHandlers{
-		x()
+		err := x()
+		if err!= nil{
+			return err
+		}
 	}
+	return nil
 
 }
 
