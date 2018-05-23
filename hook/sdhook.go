@@ -31,12 +31,22 @@ const (
 	// account credentials.
 	DefaultName = "default"
 )
+const (
+ TraceStr = "trace"
+ LatencyStr = "latency"
+ ResponseSizeStr = "responsesize"
+ ResponseCodeStr = "responsecode"
+ ClientIPStr = "clientip"
+ LocalIPStr = "localip"
+ LabelPrefixStr = "label_"
+)
 type Trace string
 type Latency time.Duration
 type ResponseSize int64
 type ResponseCode int
 type ClientIP string
 type LocalIP string
+type Label string
 
 type DefaultAgentLogger struct {
 	agentClientLogger *googleLogging.Logger
@@ -169,13 +179,62 @@ func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
 		var clientIP *ClientIP
 		var localIP *LocalIP
 		var httpReq *http.Request
+		extendedMessage := ""
 		// convert entry data to labels
 		labels := make(map[string]string, len(entry.Data))
 		for k, v := range entry.Data {
 			switch x := v.(type) {
 			case string:
-				labels[k] = x
+				switch (x){
+					case TraceStr:
+						tmp := Trace(x)
+						trace = &tmp
 
+					case ClientIPStr:
+						tmp := ClientIP(x)
+						clientIP = &tmp
+
+					case LocalIPStr:
+						tmp := LocalIP(x)
+						localIP = &tmp
+					default:
+						if(strings.HasPrefix(x,LabelPrefixStr)){
+							trimedKey := strings.TrimPrefix(x, LabelPrefixStr)
+							labels[trimedKey]=x
+						}else{
+							extendedMessage = fmt.Sprintf("%v %v=%v",extendedMessage,k,v)
+						}
+
+				}
+				//extendedMessage = fmt.Sprintf("%v %v=%v",extendedMessage,k,v)
+			case time.Duration:
+				if(k == LatencyStr){
+					tmp := Latency(x)
+					latency = &tmp
+				} else{
+					extendedMessage = fmt.Sprintf("%v %v=%v",extendedMessage,k,v)
+				}
+
+			case int:
+				if(k == ResponseSizeStr){
+					tmp := ResponseSize(x)
+					responseSize = &tmp
+				} else if(k == ResponseCodeStr){
+					tmp := ResponseCode(x)
+					responseCode = &tmp
+				}else{
+					extendedMessage = fmt.Sprintf("%v %v=%v",extendedMessage,k,v)
+				}
+			case int64:
+				if(k == ResponseSizeStr){
+					tmp := ResponseSize(x)
+					responseSize = &tmp
+				} else if(k == ResponseCodeStr){
+					tmp := ResponseCode(x)
+					responseCode = &tmp
+				}else{
+					extendedMessage = fmt.Sprintf("%v %v=%v",extendedMessage,k,v)
+				}
 			case *http.Request:
 				httpReq = x
 				loggingHttpReq = &logging.HttpRequest{
@@ -201,9 +260,11 @@ func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
 
 			case Trace:
 				trace = &x
+			case Label:
+				labels[k] = fmt.Sprintf("%v", v)
 
 			default:
-				labels[k] = fmt.Sprintf("%v", v)
+				extendedMessage = fmt.Sprintf("%v %v=%v",k,v, extendedMessage)
 			}
 		}
 
@@ -211,7 +272,7 @@ func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
 		if sh.fluentAgentClient != nil {
 			sh.sendLogMessageViaAgentUsingFluent(entry, labels, loggingHttpReq)
 		} else if(sh.defaultAgentLogger != nil){
-			sh.sendLogMessageViaAgentUsingGoogleClient(entry,labels,httpReq,latency,trace,responseCode,responseSize, clientIP,localIP)
+			sh.sendLogMessageViaAgentUsingGoogleClient(entry,labels,httpReq,latency,trace,responseCode,responseSize, clientIP,localIP,extendedMessage)
 		} else {
 			sh.sendLogMessageViaAPI(entry, labels, loggingHttpReq)
 		}
@@ -279,14 +340,8 @@ func (sh *StackdriverHook) sendLogMessageViaAgentUsingFluent(entry *logrus.Entry
 
 func (sh *StackdriverHook) sendLogMessageViaAgentUsingGoogleClient(entry *logrus.Entry, labels map[string]string, httpReq *http.Request,
 	latency *Latency, trace *Trace, responseCode *ResponseCode,
-	responseSize *ResponseSize, clientIP *ClientIP, localIP *LocalIP) {
-	//
-	//mr:= monitoredres.MonitoredResource{
-	//	Type: "gce_instance",
-	//	Labels: map[string]string{
-	//		"project_id":  sh.projectID,
-	//	},
-	//}
+	responseSize *ResponseSize, clientIP *ClientIP, localIP *LocalIP,extendedMessage string) {
+
 	logEntry := googleLogging.Entry{}
 	if(httpReq != nil){
 		googleHttpRequest:= &googleLogging.HTTPRequest{Request:httpReq}
@@ -313,10 +368,11 @@ func (sh *StackdriverHook) sendLogMessageViaAgentUsingGoogleClient(entry *logrus
 	if(trace != nil ){
 		logEntry.Trace = string(*trace)
 	}
-	logEntry.Payload = entry.Message
+	message := fmt.Sprintf("%v %v",entry.Message,extendedMessage)
+	logEntry.Payload = message
 	sh.defaultAgentLogger.agentClientLogger.Log(logEntry)
 	if sh.errorReportingServiceName != "" && isError(entry) {
-		errorEntry := errorreporting.Entry{Error:errors.New(entry.Message)}
+		errorEntry := errorreporting.Entry{Error:errors.New(message)}
 		if(httpReq!=nil){
 			errorEntry.Req =httpReq
 		}
