@@ -171,7 +171,7 @@ func (sh *StackdriverHook) Levels() []logrus.Level {
 
 // Fire writes the message to the Stackdriver entry service.
 func (sh *StackdriverHook) Fire(entry *logrus.Entry) error {
-	go func(entry *logrus.Entry) {
+	func(entry *logrus.Entry) {
 		var loggingHttpReq *logging.HttpRequest
 		var latency *Latency
 		var trace *Trace
