@@ -38,7 +38,7 @@ const (
  ResponseCodeStr = "responsecode"
  ClientIPStr = "clientip"
  LocalIPStr = "localip"
- LabelPrefixStr = "label_"
+ LabelPrefixStr = "label:"
 )
 type Trace string
 type Latency time.Duration
@@ -52,6 +52,7 @@ type DefaultAgentLogger struct {
 	agentClientLogger *googleLogging.Logger
 	monitoredResource *monitoredres.MonitoredResource
 	errorreportingClient *errorreporting.Client
+	labels  map[string] string
 }
 // StackdriverHook provides a logrus hook to Google Stackdriver logging.
 type StackdriverHook struct {
@@ -334,8 +335,23 @@ func (sh *StackdriverHook) sendLogMessageViaAgentUsingFluent(entry *logrus.Entry
 	}
 }
 
+//ignore keys of y if already exist on x
+func unionLabels(x map[string]string,y map[string]string) *map[string]string{
 
+	unionedMap := make(map[string]string)
+	if y!= nil{
+		for k, v := range y {
+			unionedMap[k] = v
+		}
+	}
+	if x!= nil {
+		for k, v := range x {
+			unionedMap[k] = v
+		}
+	}
+	return &unionedMap
 
+}
 
 
 func (sh *StackdriverHook) sendLogMessageViaAgentUsingGoogleClient(entry *logrus.Entry, labels map[string]string, httpReq *http.Request,
@@ -364,7 +380,8 @@ func (sh *StackdriverHook) sendLogMessageViaAgentUsingGoogleClient(entry *logrus
 		logEntry.HTTPRequest = googleHttpRequest
 	}
 	logEntry.Severity =logrusSeverityToGoogleAgentSeverity(entry.Level)
-	logEntry.Labels =labels
+
+	logEntry.Labels = *unionLabels(labels,sh.defaultAgentLogger.labels)
 	if(trace != nil ){
 		logEntry.Trace = string(*trace)
 	}
